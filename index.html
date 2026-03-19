@@ -89,10 +89,11 @@
           Calendar, PieChart, LogOut, Plus, Search, Filter, MoreHorizontal, CheckCircle, 
           Clock, AlertCircle, X, Image as ImageIcon, Trash2, Edit2, 
           ChevronDown, User, Layers, Rocket, Loader2, Undo, Info, CheckCircle2, 
-          XCircle, AlertTriangle, Bell, ListChecks, History, Shield, CheckSquare, Square, Eye
+          XCircle, AlertTriangle, Bell, ListChecks, History, Shield, CheckSquare, Square, Eye,
+          Camera, QrCode, Save, Phone, UserCircle, Briefcase, Languages, ChevronRight
         } from 'lucide-react';
 
-        // --- Firebase Configuration (Restored) ---
+        // --- Firebase Configuration ---
         const defaultFirebaseConfig = {
             apiKey: "AIzaSyBdmGg7vi9QAD04TFM9suKvjoId_HO7s18",
             authDomain: "fusetaskhyg.firebaseapp.com",
@@ -158,6 +159,175 @@
         };
 
         // --- Components ---
+
+        // NEW: Business Card Form Component
+        const BusinessCardForm = ({ user, workerRef, addToast }) => {
+          const [cardData, setCardData] = useState({
+            nameTh: 'คุณฟิวส์ วีรพงษ์ เหมะธุลิน',
+            nameEn: 'Mr. Fuse Weerapong Hamathulin',
+            positionTh: 'ผู้จัดการฝ่ายขาย',
+            positionEn: 'Sales Manager',
+            phone: '0661241409',
+            profileImg: '',
+            qrImg: ''
+          });
+          const [loading, setLoading] = useState(true);
+          const [saving, setSaving] = useState(false);
+
+          useEffect(() => {
+            if (!user) return;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'business_card');
+            const unsubscribe = onSnapshot(docRef, (docSnap) => {
+              if (docSnap.exists()) {
+                setCardData(prev => ({ ...prev, ...docSnap.data() }));
+              }
+              setLoading(false);
+            }, (err) => {
+              console.error("Error loading:", err);
+              setLoading(false);
+            });
+            return () => unsubscribe();
+          }, [user]);
+
+          const handleSave = async () => {
+            setSaving(true);
+            try {
+              const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'business_card');
+              await setDoc(docRef, cardData);
+              addToast('บันทึกข้อมูลนามบัตรเรียบร้อยแล้ว', 'success');
+              logAudit('UPDATE', 'Updated business card data', user);
+            } catch (err) {
+              addToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+            } finally {
+              setSaving(false);
+            }
+          };
+
+          const handleImageUpload = (e, field) => {
+            const file = e.target.files[0];
+            if (file) {
+              if (file.size > 1024 * 1024) {
+                alert("ไฟล์ภาพใหญ่เกินไป (จำกัด 1MB)");
+                return;
+              }
+              const worker = workerRef.current;
+              if (worker) {
+                worker.postMessage({ file, maxWidth: 400, quality: 0.8 });
+                worker.onmessage = (event) => {
+                  if (event.data.success) {
+                    setCardData(prev => ({ ...prev, [field]: event.data.url }));
+                  }
+                };
+              }
+            }
+          };
+
+          if (loading) return <div className="p-20 text-center text-slate-500 font-medium flex flex-col items-center gap-4"><Loader2 className="animate-spin text-teal-500" /> กำลังดึงข้อมูล...</div>;
+
+          return (
+            <div className="max-w-2xl mx-auto space-y-6 fade-in mb-10">
+              <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-8 text-white flex items-center gap-5">
+                  <div className="p-4 bg-teal-500 rounded-2xl shadow-lg shadow-teal-500/20"><User size={24} /></div>
+                  <div>
+                    <h1 className="text-xl font-bold">ข้อมูลนามบัตรดิจิทัล</h1>
+                    <p className="text-xs text-slate-400 font-light">จัดการข้อมูลส่วนตัวเพื่อใช้ในการติดต่องาน</p>
+                  </div>
+                </div>
+
+                <div className="p-8 space-y-8">
+                  {/* Image Uploads */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                        <Camera size={14} className="text-teal-500" /> 1. รูปโปรไฟล์
+                      </label>
+                      <div 
+                        className="group relative aspect-square rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center cursor-pointer hover:border-teal-400 transition-all overflow-hidden"
+                        onClick={() => document.getElementById('profile-card-input').click()}
+                      >
+                        {cardData.profileImg ? (
+                          <img src={cardData.profileImg} className="w-full h-full object-cover" alt="Profile" />
+                        ) : (
+                          <div className="text-center">
+                            <UserCircle size={48} className="text-slate-200 mx-auto mb-2" />
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">เลือกรูปภาพ</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-teal-600/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-[2px]">
+                          <span className="text-white text-xs font-bold bg-teal-600 px-3 py-1 rounded-full shadow-lg">เปลี่ยนรูป</span>
+                        </div>
+                      </div>
+                      <input id="profile-card-input" type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'profileImg')} />
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                        <QrCode size={14} className="text-emerald-500" /> 2. รูป QR Code Line
+                      </label>
+                      <div 
+                        className="group relative aspect-square rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 transition-all overflow-hidden"
+                        onClick={() => document.getElementById('qr-card-input').click()}
+                      >
+                        {cardData.qrImg ? (
+                          <img src={cardData.qrImg} className="w-full h-full object-contain p-6" alt="QR" />
+                        ) : (
+                          <div className="text-center">
+                            <QrCode size={48} className="text-slate-200 mx-auto mb-2" />
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">เลือกไฟล์ QR</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-emerald-600/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-[2px]">
+                          <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full shadow-lg">เปลี่ยนไฟล์</span>
+                        </div>
+                      </div>
+                      <input id="qr-card-input" type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'qrImg')} />
+                    </div>
+                  </div>
+
+                  {/* Text Fields */}
+                  <div className="space-y-6 pt-6 border-t border-slate-50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1.5"><Languages size={10} /> ชื่อ (ภาษาไทย)</label>
+                        <input type="text" value={cardData.nameTh} onChange={(e) => setCardData({...cardData, nameTh: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-teal-500 transition-all font-medium text-sm" placeholder="ระบุชื่อภาษาไทย..." />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1.5"><Languages size={10} /> Name (English)</label>
+                        <input type="text" value={cardData.nameEn} onChange={(e) => setCardData({...cardData, nameEn: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-teal-500 transition-all font-medium text-sm" placeholder="English name..." />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1.5"><Briefcase size={10} /> ตำแหน่ง (ภาษาไทย)</label>
+                        <input type="text" value={cardData.positionTh} onChange={(e) => setCardData({...cardData, positionTh: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-teal-500 transition-all font-medium text-sm" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1.5"><Briefcase size={10} /> Position (English)</label>
+                        <input type="text" value={cardData.positionEn} onChange={(e) => setCardData({...cardData, positionEn: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-teal-500 transition-all font-medium text-sm" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1.5"><Phone size={10} /> เบอร์โทรศัพท์</label>
+                      <input type="tel" value={cardData.phone} onChange={(e) => setCardData({...cardData, phone: e.target.value})} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-teal-500 transition-all font-medium text-sm" />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full py-4.5 bg-teal-500 text-white rounded-2xl font-bold shadow-xl shadow-teal-500/20 hover:bg-teal-600 active:scale-[0.98] transition-all flex items-center justify-center gap-3 mt-4 disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                    {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลนามบัตร'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        };
 
         const NotificationDropdown = ({ notifications, onClose, onViewTask }) => (
           <div className="absolute top-16 right-4 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-slideIn">
@@ -231,8 +401,8 @@
             <div className="bg-white/80 backdrop-blur-md p-8 md:p-10 rounded-3xl shadow-2xl w-full max-w-sm border border-white text-center">
               <div className="mb-8 flex justify-center"><div className="w-20 h-20 bg-gradient-to-tr from-teal-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg rotate-3 overflow-hidden"><img src="https://raw.githubusercontent.com/Fusemxd/task.fuse.hyg/37e17d0f0f712995e6e21546cba558911aecb74a/3.png" alt="Logo" className="w-16 h-16 object-contain bg-white rounded-xl p-1 -rotate-3 shadow-sm" /></div></div>
               <h2 className="text-3xl font-bold text-slate-800 mb-1">Welcome Back</h2><p className="text-slate-500 text-sm mb-8">Production Planner 2026</p>
-              <form onSubmit={onLogin} className="space-y-4 text-left"><div><label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Email</label><input name="email" type="email" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="name@company.com" required /></div><div><label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Password</label><input name="password" type="password" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="••••••••" required /></div>{error && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded-lg">{error}</div>}<button type="submit" disabled={loading} className="w-full py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition font-bold shadow-lg flex justify-center items-center gap-2 mt-2 disabled:opacity-70">{loading ? <Loader2 className="animate-spin" size={20} /> : 'Login'}</button></form>
-              <div className="relative my-8"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div><div class="relative flex justify-center text-xs"><span className="px-2 bg-slate-50 text-slate-400">or continue as</span></div></div>
+              <form onSubmit={onLogin} className="space-y-4 text-left"><div><label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Email</label><input name="email" type="email" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="name@company.com" required /></div><div><label className="block text-xs font-bold text-slate-400 uppercase mb-1.5 ml-1">Password</label><input name="password" type="password" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="••••••••" required /></div>{error && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded-lg">{error}</div>}<button type="submit" disabled={loading} className="w-full py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition font-bold shadow-lg flex justify-center items-center gap-2 mt-2 disabled:opacity-70">{loading ? <Loader2 className="animate-spin" size={20} /> : 'Login'}</button></form>
+              <div className="relative my-8"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div><div className="relative flex justify-center text-xs"><span className="px-2 bg-slate-50 text-slate-400">or continue as</span></div></div>
               <button onClick={onGuest} disabled={loading} className="w-full py-3 bg-white text-slate-600 rounded-xl hover:bg-slate-50 transition font-medium text-sm flex justify-center items-center gap-2 border border-slate-200 shadow-sm disabled:opacity-70">Guest Mode</button>
             </div>
           </div>
@@ -246,10 +416,11 @@
                 <div className="h-6 w-px bg-slate-200 mx-1 hidden md:block"></div>
                 <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400"><User size={14} /></div><span className="text-xs text-slate-600 font-medium truncate max-w-[100px]">{user?.isAnonymous ? 'Guest' : user?.email?.split('@')[0]}</span></div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => onSwitchTab('planner')} className={`px-4 py-2 rounded-full text-sm transition-all flex items-center gap-2 ${activeTab === 'planner' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={16} /> <span className="hidden sm:inline">Planner</span></button>
-                <button onClick={() => onSwitchTab('dashboard')} className={`px-4 py-2 rounded-full text-sm transition-all flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'text-slate-600 hover:bg-slate-50'}`}><PieChart size={16} /> <span className="hidden sm:inline">Dashboard</span></button>
-                <div className="h-6 w-px bg-slate-200 mx-1"></div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => onSwitchTab('planner')} className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'planner' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={14} /> <span className="hidden lg:inline">Planner</span></button>
+                <button onClick={() => onSwitchTab('dashboard')} className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'text-slate-600 hover:bg-slate-50'}`}><PieChart size={14} /> <span className="hidden lg:inline">Dashboard</span></button>
+                <button onClick={() => onSwitchTab('card')} className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'card' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'text-slate-600 hover:bg-slate-50'}`}><UserCircle size={14} /> <span className="hidden lg:inline">Card</span></button>
+                <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
                 {user && !user.isAnonymous && (<><button onClick={toggleNotif} className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition"><Bell size={18} />{notifCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>}</button><button onClick={toggleHistory} className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition"><History size={18} /></button></>)}
                 <button onClick={onLogout} className="p-2 text-slate-300 hover:text-red-500 transition"><LogOut size={18} /></button>
               </div>
@@ -313,12 +484,57 @@
             );
         };
 
-        const Dashboard = ({ tasks }) => {
+        const Dashboard = ({ tasks, onSwitchTab }) => {
             const [expandedMonth, setExpandedMonth] = useState(null);
             const counts = useMemo(() => { const c = { todo: 0, doing: 0, draft: 0, done: 0, cancelled: 0 }; tasks.forEach(m => m.forEach(t => c[t.status] !== undefined && c[t.status]++)); return c; }, [tasks]);
             useEffect(() => { const ctx = document.getElementById('monthlyChart')?.getContext('2d'); if (ctx) { const data = tasks.map(m => { const total = m.length; const done = m.filter(t => t.status === 'done').length; return total ? Math.round((done / total) * 100) : 0; }); new Chart(ctx, { type: 'line', data: { labels: MONTH_NAMES_TH, datasets: [{ label: 'Progress %', data: data, borderColor: '#14b8a6', backgroundColor: 'rgba(20, 184, 166, 0.1)', borderWidth: 3, pointBackgroundColor: '#fff', pointBorderColor: '#14b8a6', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 }, x: { grid: { display: false } } } } }); } }, [tasks]);
             return (
-                <div className="space-y-6 fade-in"><h3 className="text-2xl font-bold text-slate-800">Dashboard</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 col-span-2 relative overflow-hidden"><h4 className="font-bold text-slate-800 mb-6 text-lg">Monthly Progress</h4><div className="h-64 relative z-10"><canvas id="monthlyChart"></canvas></div></div><div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4"><h4 className="font-bold text-slate-800 text-lg mb-4">Status</h4>{Object.entries(STATUS_CONFIG).map(([key, conf]) => (<div key={key} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl border border-slate-100"><span className={`text-xs font-bold uppercase ${conf.color.split(' ')[1]}`}>{conf.label}</span><div className={`text-xl font-bold ${conf.color.split(' ')[1]}`}>{counts[key] || 0}</div></div>))}</div></div><div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden"><div className="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/30"><div><h4 className="font-bold text-slate-700">Detailed Breakdown</h4><p className="text-xs text-slate-400 mt-1">Click rows to expand details</p></div></div><div className="overflow-x-auto"><table className="w-full text-sm text-left min-w-[600px]"><thead className="text-xs text-slate-400 uppercase bg-slate-50/50 border-b border-slate-100"><tr><th className="px-6 py-4 font-semibold w-1/4">Month</th><th className="px-6 py-4 font-semibold">Total Tasks</th><th className="px-6 py-4 font-semibold w-1/3">Progress</th><th className="px-6 py-4 font-semibold">%</th><th className="px-6 py-4 font-semibold text-right">Status</th></tr></thead><tbody className="divide-y divide-slate-50 font-light text-slate-600">{MONTH_NAMES_TH.map((m, i) => { const monthTasks = tasks[i] || []; const total = monthTasks.length; const done = monthTasks.filter(t => t.status === 'done').length; const percent = total ? Math.round((done / total) * 100) : 0; let barColor = 'bg-slate-100'; if (percent > 0) barColor = 'bg-blue-400'; if (percent === 100) barColor = 'bg-emerald-400'; return (<React.Fragment key={i}><tr className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setExpandedMonth(expandedMonth === i ? null : i)}><td className="px-6 py-4 font-medium text-slate-700 flex items-center gap-2"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${expandedMonth === i ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-teal-500 group-hover:text-white'}`}>{i + 1}</div>{m}</td><td className="px-6 py-4">{total}</td><td className="px-6 py-4"><div className="w-full bg-slate-100 rounded-full h-2"><div className={`${barColor} h-2 rounded-full transition-all duration-1000`} style={{ width: `${percent}%` }}></div></div></td><td className="px-6 py-4 font-bold text-slate-700">{percent}%</td><td className="px-6 py-4 text-right">{percent === 100 ? <span className="text-emerald-500 text-xs font-bold bg-emerald-50 px-2 py-1 rounded-lg">Complete</span> : percent > 0 ? <span className="text-blue-500 text-xs font-bold bg-blue-50 px-2 py-1 rounded-lg">Ongoing</span> : <span className="text-slate-300">-</span>}</td></tr>{expandedMonth === i && (<tr className="bg-slate-50/50"><td colSpan="5" className="px-6 py-4"><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">{monthTasks.length > 0 ? monthTasks.map(t => { const conf = STATUS_CONFIG[t.status] || STATUS_CONFIG['todo']; return (<div key={t.id} className="bg-white p-3 rounded-lg border border-slate-100 text-xs text-slate-600 flex justify-between items-center shadow-sm"><span className="truncate max-w-[150px] font-medium">{t.title}{t.remark && ` (${t.remark})`}</span><span className={`px-2 py-0.5 rounded text-[10px] ${conf.color.replace('bg-', 'bg-opacity-20 bg-')}`}>{conf.label}</span></div>); }) : <span className="text-slate-400 italic">No tasks for this month</span>}</div></td></tr>)}</React.Fragment>); })}</tbody></table></div></div></div>
+                <div className="space-y-6 fade-in">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard Overview</h3>
+                  </div>
+
+                  {/* Business Card Shortcut Card */}
+                  <div onClick={() => onSwitchTab('card')} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group cursor-pointer hover:border-teal-500 transition-all hover:shadow-md">
+                    <div className="flex items-center gap-5">
+                      <div className="w-14 h-14 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center group-hover:bg-teal-500 group-hover:text-white transition-all">
+                        <User size={28} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 group-hover:text-teal-600">จัดการนามบัตรดิจิทัล</h4>
+                        <p className="text-xs text-slate-400 font-medium">แก้ไขข้อมูล ชื่อ ตำแหน่ง และรูปภาพของคุณ</p>
+                      </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
+                      <ChevronRight size={20} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 col-span-2 relative overflow-hidden">
+                      <h4 className="font-bold text-slate-800 mb-6 text-lg">Monthly Progress</h4>
+                      <div className="h-64 relative z-10"><canvas id="monthlyChart"></canvas></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                      <h4 className="font-bold text-slate-800 text-lg mb-4">Status</h4>
+                      {Object.entries(STATUS_CONFIG).map(([key, conf]) => (
+                        <div key={key} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                          <span className={`text-xs font-bold uppercase ${conf.color.split(' ')[1]}`}>{conf.label}</span>
+                          <div className={`text-xl font-bold ${conf.color.split(' ')[1]}`}>{counts[key] || 0}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                      <div><h4 className="font-bold text-slate-700">Detailed Breakdown</h4><p className="text-xs text-slate-400 mt-1">Click rows to expand details</p></div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm text-left min-w-[600px]"><thead className="text-xs text-slate-400 uppercase bg-slate-50/50 border-b border-slate-100"><tr><th className="px-6 py-4 font-semibold w-1/4">Month</th><th className="px-6 py-4 font-semibold">Total Tasks</th><th className="px-6 py-4 font-semibold w-1/3">Progress</th><th className="px-6 py-4 font-semibold">%</th><th className="px-6 py-4 font-semibold text-right">Status</th></tr></thead><tbody className="divide-y divide-slate-50 font-light text-slate-600">{MONTH_NAMES_TH.map((m, i) => { const monthTasks = tasks[i] || []; const total = monthTasks.length; const done = monthTasks.filter(t => t.status === 'done').length; const percent = total ? Math.round((done / total) * 100) : 0; let barColor = 'bg-slate-100'; if (percent > 0) barColor = 'bg-blue-400'; if (percent === 100) barColor = 'bg-emerald-400'; return (<React.Fragment key={i}><tr className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setExpandedMonth(expandedMonth === i ? null : i)}><td className="px-6 py-4 font-medium text-slate-700 flex items-center gap-2"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${expandedMonth === i ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-teal-500 group-hover:text-white'}`}>{i + 1}</div>{m}</td><td className="px-6 py-4">{total}</td><td className="px-6 py-4"><div className="w-full bg-slate-100 rounded-full h-2"><div className={`${barColor} h-2 rounded-full transition-all duration-1000`} style={{ width: `${percent}%` }}></div></div></td><td className="px-6 py-4 font-bold text-slate-700">{percent}%</td><td className="px-6 py-4 text-right">{percent === 100 ? <span className="text-emerald-500 text-xs font-bold bg-emerald-50 px-2 py-1 rounded-lg">Complete</span> : percent > 0 ? <span className="text-blue-500 text-xs font-bold bg-blue-50 px-2 py-1 rounded-lg">Ongoing</span> : <span className="text-slate-300">-</span>}</td></tr>{expandedMonth === i && (<tr className="bg-slate-50/50"><td colSpan="5" className="px-6 py-4"><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">{monthTasks.length > 0 ? monthTasks.map(t => { const conf = STATUS_CONFIG[t.status] || STATUS_CONFIG['todo']; return (<div key={t.id} className="bg-white p-3 rounded-lg border border-slate-100 text-xs text-slate-600 flex justify-between items-center shadow-sm"><span className="truncate max-w-[150px] font-medium">{t.title}{t.remark && ` (${t.remark})`}</span><span className={`px-2 py-0.5 rounded text-[10px] ${conf.color.replace('bg-', 'bg-opacity-20 bg-')}`}>{conf.label}</span></div>); }) : <span className="text-slate-400 italic">No tasks for this month</span>}</div></td></tr>)}</React.Fragment>); })}</tbody></table>
+                    </div>
+                  </div>
+                </div>
             );
         };
 
@@ -354,7 +570,7 @@
           const currentTasks = useMemo(() => { let list = tasks[currentMonth] || []; if (filter !== 'all') list = list.filter(t => t.channel === filter); if (search) list = list.filter(t => t.title.toLowerCase().includes(search.toLowerCase())); return list; }, [tasks, currentMonth, filter, search]);
           if (!user && !authLoading) return <LoginOverlay onLogin={handleLogin} onGuest={handleGuestLogin} loading={authLoading} error={authError} />;
           return (
-            <div className="min-h-screen bg-slate-50 pb-20 relative"><ToastContainer toasts={toasts} removeToast={removeToast} />{showNotif && <NotificationDropdown notifications={notifications} onClose={() => setShowNotif(false)} onViewTask={handleViewTask} />}<AuditLogDropdown isOpen={showHistory} onClose={() => setShowHistory(false)} /><Navbar user={user} activeTab={view} onSwitchTab={setView} onLogout={() => signOut(auth)} toggleHistory={() => { setShowHistory(!showHistory); if(showNotif) setShowNotif(false); }} toggleNotif={() => { setShowNotif(!showNotif); if(showHistory) setShowHistory(false); }} notifCount={notifications.length} /><main className="max-w-7xl mx-auto px-4 py-6">{view === 'planner' ? (<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 fade-in"><div className="hidden lg:block lg:col-span-3"><MonthNavigator currentMonth={currentMonth} onSelectMonth={setCurrentMonth} counts={tasks.map(m => m.length)} /></div><div className="lg:col-span-9 space-y-6"><div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-3xl p-8 shadow-xl shadow-teal-500/20 relative overflow-hidden"><div className="relative z-10"><div className="flex justify-between items-start"><div><h2 className="text-4xl font-bold tracking-tight mb-1">{MONTH_NAMES_TH[currentMonth]}</h2><div className="flex items-center gap-2 opacity-90 text-sm font-light"><Rocket size={14} /> Launching: <span className="font-medium">{LAUNCH_MONTHS_TH[currentMonth]}</span></div></div>{!user?.isAnonymous && (<button onClick={() => { setIsSelectMode(!isSelectMode); setSelectedTasks(new Set()); }} className={`px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-sm transition ${isSelectMode ? 'bg-white text-teal-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>{isSelectMode ? 'Cancel Selection' : 'Select'}</button>)}</div></div></div><div className="flex flex-col sm:flex-row justify-between gap-4"><div className="flex gap-3 overflow-x-auto no-scrollbar pb-1"><button onClick={() => setFilter('all')} className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap ${filter === 'all' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}`}>All</button>{CHANNELS.map(c => <button key={c} onClick={() => setFilter(c)} className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap ${filter === c ? 'bg-teal-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}>{c}</button>)}</div><div className="relative w-full sm:w-64 group"><input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none pl-10 shadow-sm" /><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} /></div>{!user?.isAnonymous && <button onClick={() => { setEditingTask(null); setAddModalOpen(true); }} className="px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg transition active:scale-95 flex items-center gap-2"><Plus size={18} /> Add</button>}</div>{currentTasks.length === 0 ? <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-300"><Layers size={48} className="mx-auto mb-3 opacity-50" /><p>No tasks found</p></div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{currentTasks.map(t => (<TaskCard key={t.id} task={t} isGuest={user?.isAnonymous} onClick={(task) => { setActiveTask(task); setDetailModalOpen(true); }} onEdit={(task) => { setEditingTask(task); setAddModalOpen(true); }} onDelete={() => handleDelete(t)} onStatusChange={handleStatusChange} isProcessing={actionLoading} isSelectMode={isSelectMode} isSelected={selectedTasks.has(t.id)} onToggleSelect={toggleSelect} />))}</div>}</div></div>) : <Dashboard tasks={tasks} />}</main>{isSelectMode && selectedTasks.size > 0 && (<div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 z-40 animate-slideUp"><span className="font-bold text-sm">{selectedTasks.size} selected</span><div className="h-4 w-px bg-slate-700"></div><button onClick={() => handleBulkAction('done')} className="text-emerald-400 hover:text-emerald-300 font-medium text-sm flex items-center gap-1"><CheckCircle2 size={16}/> Mark Done</button><button onClick={() => handleBulkAction('delete')} className="text-red-400 hover:text-red-300 font-medium text-sm flex items-center gap-1"><Trash2 size={16}/> Delete</button></div>)}<ConfirmModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} loading={actionLoading} /><AddTaskModal isOpen={isAddModalOpen} onClose={() => setAddModalOpen(false)} onSave={handleSaveTask} editingTask={editingTask} workerRef={workerRef} isSaving={actionLoading} /><TaskDetailModal task={activeTask} onClose={() => { setActiveTask(null); setDetailModalOpen(false); }} onEdit={(task) => { setDetailModalOpen(false); setEditingTask(task); setAddModalOpen(true); }} isGuest={user?.isAnonymous} onToggleSubtask={handleToggleSubtask} /></div>
+            <div className="min-h-screen bg-slate-50 pb-20 relative"><ToastContainer toasts={toasts} removeToast={removeToast} />{showNotif && <NotificationDropdown notifications={notifications} onClose={() => setShowNotif(false)} onViewTask={handleViewTask} />}<AuditLogDropdown isOpen={showHistory} onClose={() => setShowHistory(false)} /><Navbar user={user} activeTab={view} onSwitchTab={setView} onLogout={() => signOut(auth)} toggleHistory={() => { setShowHistory(!showHistory); if(showNotif) setShowNotif(false); }} toggleNotif={() => { setShowNotif(!showNotif); if(showHistory) setShowHistory(false); }} notifCount={notifications.length} /><main className="max-w-7xl mx-auto px-4 py-6">{view === 'planner' ? (<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 fade-in"><div className="hidden lg:block lg:col-span-3"><MonthNavigator currentMonth={currentMonth} onSelectMonth={setCurrentMonth} counts={tasks.map(m => m.length)} /></div><div className="lg:col-span-9 space-y-6"><div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-3xl p-8 shadow-xl shadow-teal-500/20 relative overflow-hidden"><div className="relative z-10"><div className="flex justify-between items-start"><div><h2 className="text-4xl font-bold tracking-tight mb-1">{MONTH_NAMES_TH[currentMonth]}</h2><div className="flex items-center gap-2 opacity-90 text-sm font-light"><Rocket size={14} /> Launching: <span className="font-medium">{LAUNCH_MONTHS_TH[currentMonth]}</span></div></div>{!user?.isAnonymous && (<button onClick={() => { setIsSelectMode(!isSelectMode); setSelectedTasks(new Set()); }} className={`px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-sm transition ${isSelectMode ? 'bg-white text-teal-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>{isSelectMode ? 'Cancel Selection' : 'Select'}</button>)}</div></div></div><div className="flex flex-col sm:flex-row justify-between gap-4"><div className="flex gap-3 overflow-x-auto no-scrollbar pb-1"><button onClick={() => setFilter('all')} className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap ${filter === 'all' ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}`}>All</button>{CHANNELS.map(c => <button key={c} onClick={() => setFilter(c)} className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap ${filter === c ? 'bg-teal-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}>{c}</button>)}</div><div className="relative w-full sm:w-64 group"><input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none pl-10 shadow-sm" /><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} /></div>{!user?.isAnonymous && <button onClick={() => { setEditingTask(null); setAddModalOpen(true); }} className="px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg transition active:scale-95 flex items-center gap-2"><Plus size={18} /> Add</button>}</div>{currentTasks.length === 0 ? <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl text-slate-300"><Layers size={48} className="mx-auto mb-3 opacity-50" /><p>No tasks found</p></div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{currentTasks.map(t => (<TaskCard key={t.id} task={t} isGuest={user?.isAnonymous} onClick={(task) => { setActiveTask(task); setDetailModalOpen(true); }} onEdit={(task) => { setEditingTask(task); setAddModalOpen(true); }} onDelete={() => handleDelete(t)} onStatusChange={handleStatusChange} isProcessing={actionLoading} isSelectMode={isSelectMode} isSelected={selectedTasks.has(t.id)} onToggleSelect={toggleSelect} />))}</div>}</div></div>) : view === 'card' ? <BusinessCardForm user={user} workerRef={workerRef} addToast={addToast} /> : <Dashboard tasks={tasks} onSwitchTab={setView} />}</main>{isSelectMode && selectedTasks.size > 0 && (<div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 z-40 animate-slideUp"><span className="font-bold text-sm">{selectedTasks.size} selected</span><div className="h-4 w-px bg-slate-700"></div><button onClick={() => handleBulkAction('done')} className="text-emerald-400 hover:text-emerald-300 font-medium text-sm flex items-center gap-1"><CheckCircle2 size={16}/> Mark Done</button><button onClick={() => handleBulkAction('delete')} className="text-red-400 hover:text-red-300 font-medium text-sm flex items-center gap-1"><Trash2 size={16}/> Delete</button></div>)}<ConfirmModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} loading={actionLoading} /><AddTaskModal isOpen={isAddModalOpen} onClose={() => setAddModalOpen(false)} onSave={handleSaveTask} editingTask={editingTask} workerRef={workerRef} isSaving={actionLoading} /><TaskDetailModal task={activeTask} onClose={() => { setActiveTask(null); setDetailModalOpen(false); }} onEdit={(task) => { setDetailModalOpen(false); setEditingTask(task); setAddModalOpen(true); }} isGuest={user?.isAnonymous} onToggleSubtask={handleToggleSubtask} /></div>
           );
         }
         const root = createRoot(document.getElementById('root')); root.render(<App />);
